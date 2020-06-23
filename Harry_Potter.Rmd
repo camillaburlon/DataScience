@@ -1,7 +1,13 @@
 ---
 title: "Harry Potter"
 author: "Camilla Burlon"
-output: ioslides_presentation
+output:
+  ioslides_presentation:
+    css: style.css
+    incremental: yes
+    logo: logohp.png
+  slidy_presentation:
+    incremental: yes
 editor_options:
   chunk_output_type: inline
 ---
@@ -10,7 +16,17 @@ editor_options:
 knitr::opts_chunk$set(cache = TRUE, message = FALSE, warning = FALSE)
 ```
 
-##HARRY POTTER
+## HARRY POTTER
+I sette libri della collana di Harry Potter sono messi a disposizione da 'harrypotter package', che include:
+
+* philosophers_stone: Harry Potter and the Philosophers Stone (1997)
+* chamber_of_secrets: Harry Potter and the Chamber of Secrets (1998)
+* prisoner_of_azkaban: Harry Potter and the Prisoner of Azkaban (1999)
+* goblet_of_fire: Harry Potter and the Goblet of Fire (2000)
+* order_of_the_phoenix: Harry Potter and the Order of the Phoenix (2003)
+* half_blood_prince: Harry Potter and the Half-Blood Prince (2005)
+* deathly_hallows: Harry Potter and the Deathly Hallows (2007)
+
 ```{r echo=FALSE, eval=TRUE}
 #Pacchetto contenente i 7 libri della seria Harry Potter di JK Rowling. (Github)
 #if (packageVersion("devtools") < 1.6) {
@@ -27,7 +43,6 @@ library(tidygraph)
 library(ggraph)
 library(topicmodels)
 library(widyr)
-
 
 books <- list(philosophers_stone, chamber_of_secrets, prisoner_of_azkaban, goblet_of_fire,
               order_of_the_phoenix, half_blood_prince, deathly_hallows)
@@ -47,16 +62,14 @@ HP_books$book <- factor(HP_books$book, levels = rev(titles))
 
 ```
 
-## Divisione in capitoli
-```{r}
+```{r echo=FALSE}
 #capitoli per libro
-HP_books %>% 
-  group_by(book) %>% 
-  summarise(chapters = n())
+#HP_books %>% 
+ # group_by(book) %>% 
+ # summarise(chapters = n())
 
 # tokenization: tutte le parole dei libri 
 tidy_HPbooks <- unnest_tokens(tbl = HP_books, output = word, input = text)
-tidy_HPbooks
 
 #rimozione delle stopword
 tidy_HPbooks <- tidy_HPbooks %>%
@@ -64,8 +77,8 @@ tidy_HPbooks <- tidy_HPbooks %>%
 
 ```
 
-## Word frequency 
-```{r}
+## Grafico delle frequenze
+```{r echo=FALSE}
 # grafico delle frequenze
 tidy_HPbooks %>%
   count(word, sort = TRUE) %>%
@@ -78,8 +91,8 @@ tidy_HPbooks %>%
 
 ```
 
-##Grafico per la frequenza delle parole
-```{r}
+## Grafico a nuvola
+```{r echo=FALSE}
 library(wordcloud)
 
 tidy_HPbooks %>%
@@ -87,44 +100,31 @@ tidy_HPbooks %>%
   with(wordcloud(word, n, max.words = 200))
 ```
 
-##Grafici per i vari libri
-```{r}
+## Grafici di frequenza per i libri
+### Parole più frequenti in Harry Potter
+```{r echo=FALSE}
 tidy_HPbooks %>%
   group_by(book) %>%
   count(word, sort = TRUE) %>%
   top_n(10) %>%
   ungroup() %>%
-  mutate(book = factor(book, levels = titles), text_order = nrow(.):1, 
-         word = reorder(word, text_order)) %>% #metto dei numeri ai libri
+  mutate(word = reorder(word, n), book = factor(book, levels = titles), text_order = nrow(.):1) %>% 
   ggplot(aes(word, n, fill = book)) +
     geom_col(show.legend = FALSE) +
-    facet_wrap(~ book, scales = "free_y") +
-    labs(title = "Parole più frequenti in Harry Potter", x = NULL, y = NULL) +
+    facet_wrap(~book, scales = "free_y") +
+    labs(y = NULL, x = NULL) +
     coord_flip() 
 ```
 
-##Sentiment analysis   
-```{r}
-HP_sentiment <- tidy_HPbooks %>%
-  inner_join(get_sentiments("bing")) %>%
-  count(book, chapter, sentiment) %>%
-  spread(sentiment, n, fill = 0) %>%
-  mutate(sentiment = positive - negative)
+## Sentiment analysis   
 
-HP_sentiment
-
-#per ogni libro esprime un giudizio per i vari capitoli 
-ggplot(HP_sentiment, aes(chapter, sentiment, fill = book)) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~book, ncol = 2, scales = "free_x")
-
+#### Parole piu frequenti per il sentimento negativo e positivo
+```{r echo=FALSE}
 #parole best per ogni sentimento
 bing_word <- tidy_HPbooks %>%
   inner_join(get_sentiments("bing")) %>%
   count(word, sentiment, sort = TRUE) %>%
   ungroup()
-
-bing_word
 
 bing_word %>%
   group_by(sentiment) %>%
@@ -134,10 +134,32 @@ bing_word %>%
   ggplot(aes(word, n, fill = sentiment)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~sentiment, scales = "free_y") + 
-  labs(y = "Parole piu frequenti per il sentimento negativo e quello positivo", x = NULL) +
+  labs(y = NULL, x = NULL) +
   coord_flip() 
 
-#parole di gioia
+```
+
+#### Quali sono le emozioni che suscita ogni capitolo?
+```{r echo=FALSE}
+#per ogni libro esprime un giudizio per i vari capitoli 
+HP_sentiment <- tidy_HPbooks %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, chapter, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ggplot(HP_sentiment, aes(chapter, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  labs(y = NULL, x = NULL) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+
+```
+
+* Con questo dizionario ogni libro è considerato triste.
+* I due capitoli più tristi sono la morte di Harry e quella di Sirius Black.
+
+## Parole di gioia
+```{r echo=FALSE, comment=""}
 nrc_joy <- get_sentiments("nrc") %>% 
   filter(sentiment == "joy")
 
@@ -146,7 +168,9 @@ tidy_HPbooks %>%
   inner_join(nrc_joy) %>%
   count(word, sort = TRUE)
 
-#parole classificate come paura 
+```
+## Parole classificate come paura 
+```{r echo=FALSE, comment=""}
 nrc_fear <- get_sentiments("nrc") %>% 
   filter(sentiment == "fear")
 
@@ -154,7 +178,9 @@ tidy_HPbooks %>%
   inner_join(nrc_fear) %>%
   count(word, sort = TRUE)
 
-#parole classificate come tristi
+```
+## Parole di tristezza
+```{r echo=FALSE, comment=""}
 nrc_sadness <- get_sentiments("nrc") %>% 
   filter(sentiment == "sadness")
 
@@ -164,11 +190,12 @@ tidy_HPbooks %>%
 
 ```
 
-#Bigrammi e Trigrammi
-```{r}
+
+## Bigrammi
+```{r echo=FALSE, comment=""}
 #tibble dei bigrammi
 HP_bigrams <- HP_books %>%
-  unnest_ngrams(bigram, text, ng = "ngrams", n = 2) 
+  unnest_tokens(bigram, text, token = "ngrams", n = 2) 
 
 # remove stop words
 HPbigrams_separated <- HP_bigrams %>%
@@ -182,14 +209,10 @@ HPbigrams_filtered <- HPbigrams_separated %>%
 bigram_counts <- HPbigrams_filtered %>% 
   count(word1, word2, sort = TRUE)
 bigram_counts
+```
 
-#occorrenze di lord voldemort vs harry potter
-bigram_voldemortVSharry <- HPbigrams_filtered %>% 
-  filter((word1 == "lord" & word2 == "voldemort") | (word1 == "harry" & word2 == "potter")) %>%
-  count(word1, word2, sort = TRUE) %>%
-  top_n(2)
-bigram_voldemortVSharry
-
+## Grafico dei bigrammi
+```{r echo=FALSE}
 bigram_graph <- bigram_counts %>%
   filter(n > 50) %>% 
   as_tbl_graph() 
@@ -200,37 +223,47 @@ a <- grid::arrow(type = "closed", length = unit(.1, "inches"))
 ggraph(bigram_graph, layout = "fr") +
   geom_edge_link(aes(edge_alpha = n), show.legend = FALSE, arrow = a, end_cap = circle(.07, 'inches')) +
   geom_node_point(color = "lightblue", size = 1) +
-  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1, check_overlap = FALSE) +
   theme_void()
 
+```
+
+### Grafico di correlazione per "Il principe mezzosangue"
+```{r echo=FALSE}
 #cluster per il mio prefe
 hp_section_words <- tidy_HPbooks %>%
   filter(book == "Half-Blood Prince") %>%
   mutate(section = row_number() %/% 10) %>% 
   filter(section > 0) 
 
-hp_section_words
-
 word_pairs <- hp_section_words %>%
   pairwise_count(word, section, sort = TRUE)
-
-word_pairs
 
 word_cors <- hp_section_words %>%
   group_by(word) %>%
   filter(n() >= 20) %>%
   pairwise_cor(word, section, sort = TRUE)
 
-word_cors
-
 word_cors %>%
-  filter(correlation > .15) %>%
+  filter(correlation > .20) %>%
   as_tbl_graph() %>%
   ggraph(layout = "fr") +
   geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
   geom_node_point(color = "lightblue", size = 1) +
-  geom_node_text(aes(label = name), repel = TRUE) +
+  geom_node_text(aes(label = name), repel = TRUE, check_overlap = FALSE) +
   theme_void()
+
+```
+
+## Quante volte viene nominato Lord Voldemort in confronto ad Harry Potter?
+```{r echo=FALSE, comment=""}
+#occorrenze di lord voldemort/tom riddle vs harry potter
+bigram_voldemortVSharry <- HPbigrams_filtered %>% 
+  filter((word1 == "lord" & word2 == "voldemort") | (word1 == "harry" & word2 == "potter")
+         |(word1 == "tom" & word2 == "riddle") ) %>%
+  count(word1, word2, sort = TRUE) %>%
+  top_n(3)
+bigram_voldemortVSharry
 
 #occorrenze di "tu sai chi" - trigramma
 HP_bigrams3 <- HP_books %>%
@@ -243,10 +276,23 @@ bigram_voldemort <- HPbigrams_separated3 %>%
   count(word1, word2, word3, sort = TRUE)
   
 bigram_voldemort
-```
-##topics
 
-```{r}
+#He-Who-Must-Not-Be-Named - esagramma
+HP_bigrams6 <- HP_books %>%
+  unnest_ngrams(bigram, text, n = 6) 
+HPbigrams_separated6 <- HP_bigrams6 %>%
+  separate(bigram, c("word1", "word2", "word3", "word4", "word5", "word6"), sep = " ")
+
+bigram_voldemort2 <- HPbigrams_separated6 %>% 
+  filter(word1 == "he" & word2 == "who" & word3 == "must" & 
+           word4 == "not" & word5 == "be" & word6 == "named") %>%
+  count(word1, word2, word3, word4, word5, word6, sort = TRUE)
+
+bigram_voldemort2
+```
+
+## Si possono distinguere i libri in diversi topics?
+```{r echo=FALSE}
 #conteggio parole
 wordHP = tidy_HPbooks %>%
   anti_join(stop_words) %>%
@@ -259,7 +305,6 @@ hp_dtm = wordHP  %>%
 hp_lda <- LDA(hp_dtm, k = 7, control = list(seed = 1234))
 
 hp_topics <- tidy(hp_lda, matrix = "beta")
-hp_topics
 
 hp_top_terms <- hp_topics %>%
   group_by(topic) %>%
@@ -274,11 +319,25 @@ hp_top_terms %>%
   geom_col(show.legend = FALSE) +
   facet_wrap(~ topic, scales = "free") +
   coord_flip() +
+  labs(y = "Divisione dei libri in base all'argomento", x = NULL) +
   scale_x_reordered()
 
 ```
 
+1. Associato al libro "L'ordine della fenice" per la presenza della professoressa Umbridge
+2. Associato al libro "La camera dei segreti" perché "Lockhart" è il nome inglese di Gilderoy Allock 
+3. Associato al libro "Il calice di fuoco" per Moody e Crouch
+4. Probabilmente è "I doni della morte" per l'alta presenza di Silente e di Piton.
+5. Probabilmente è "La pietra filosofale"
+6. Associato al libro "Il prigioniero di Azkaban" perché ci sono Lupin e Black 
+7. Associato al libro "Il principe mezzo sangue" per "Slughorn" che è il professor Horace Lumacorno
 
 
+***
+<img src ="theEnd.png"/>
+
+*"Le parole sono, per la mia opinione non tanto umile, la nostra fonte di magia più inesauribile, capace sia di ferire che di curare" *
+
+(Albus Silente)
 
 
